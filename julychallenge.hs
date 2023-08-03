@@ -34,18 +34,20 @@ boardToGoal b = fmap pieceToColor b
 goalArray :: A.Array (Int, Int) Color
 goalArray = A.array ((1,1),(5,5)) [((1,1),Yellow), ((1,2),Yellow),((1,3),Empty), ((1,4),Green),((1,5), Green),((2,1),Empty),((2,2),Empty), ((2,3),Red),((2,4),Green),((2,5),Orange), ((3,1),Empty), ((3,2),Red),((3,3),Red), ((3,4),Orange),((3,5),Orange),((4,1),Blue),((4,2),Yellow), ((4,3),Yellow),((4,4),Orange),((4,5),Purple), ((5,1),Empty),((5,2),Blue), ((5,3),Purple),((5,4),Purple),((5,5),Purple)]
 
-initialArray :: Board
+initialArray :: A.Array (Int, Int) Int
+initialArray = A.array ((1,1),(5,5)) [((1,1),1), ((1,2),2),((1,3),2), ((1,4),3),((1,5), 4),((2,1),1),((2,2),2), ((2,3),3),((2,4),3),((2,5),4), ((3,1),5), ((3,2),6),((3,3),7), ((3,4),7),((3,5),8),((4,1),9),((4,2),9), ((4,3),8),((4,4),8),((4,5),8), ((5,1),0),((5,2),0), ((5,3),0),((5,4),0),((5,5),0)]
+--initialArray = A.array ((1,1),(3,3)) [((1,1),1), ((1,2),0),((1,3),0),((2,1),0),((2,2),0),((2,3),0),((3,1),0),((3,2),0),((3,3),0)]
+
+
+{-initialArray :: Board
 --initialArray = A.array ((1,1),(5,5)) [((1,1),1), ((1,2),2),((1,3),2), ((1,4),3),((1,5), 4),((2,1),1),((2,2),2), ((2,3),3),((2,4),3),((2,5),4), ((3,1),5), ((3,2),6),((3,3),7), ((3,4),7),((3,5),8),((4,1),9),((4,2),9), ((4,3),8),((4,4),8),((4,5),8), ((5,1),0),((5,2),0), ((5,3),0),((5,4),0),((5,5),0)]
 initialArray = A.array ((1,1),(5,5)) [((1,1),0), ((1,2),7),((1,3),7), ((1,4),2),((1,5), 2),((2,1),0),((2,2),0), ((2,3),3),((2,4),2),((2,5),1), ((3,1),0), ((3,2),3),((3,3),3), ((3,4),4),((3,5),1),((4,1),5),((4,2),9), ((4,3),9),((4,4),4),((4,5),8), ((5,1),0),((5,2),6), ((5,3),8),((5,4),8),((5,5),8)]
 
 
-{-goalArray :: A.Array (Int, Int) Int
+goalArray :: A.Array (Int, Int) Int
 goalArray = A.array ((1,1),(5,5)) [((1,1),7), ((1,2),7),((1,3),0), ((1,4),2),((1,5), 2),((2,1),0),((2,2),0), ((2,3),3),((2,4),2),((2,5),1), ((3,1),0), ((3,2),3),((3,3),3), ((3,4),4),((3,5),1),((4,1),5),((4,2),9), ((4,3),9),((4,4),4),((4,5),8), ((5,1),0),((5,2),6), ((5,3),8),((5,4),8),((5,5),8)]
 
 
-initialArray :: A.Array (Int, Int) Int
---initialArray = A.array ((1,1),(5,5)) [((1,1),1), ((1,2),2),((1,3),2), ((1,4),3),((1,5), 4),((2,1),1),((2,2),2), ((2,3),3),((2,4),3),((2,5),4), ((3,1),5), ((3,2),6),((3,3),7), ((3,4),7),((3,5),8),((4,1),9),((4,2),9), ((4,3),8),((4,4),8),((4,5),8), ((5,1),0),((5,2),0), ((5,3),0),((5,4),0),((5,5),0)]
-initialArray = A.array ((1,1),(3,3)) [((1,1),1), ((1,2),0),((1,3),0),((2,1),0),((2,2),0),((2,3),0),((3,1),0),((3,2),0),((3,3),0)]
 
 
 goalArray :: A.Array (Int, Int) Int
@@ -169,8 +171,10 @@ isGoalM = do
     let goal = isGoal cur
     pure goal 
 
+
 distance :: Board -> Int 
-distance b = length [k | k<-[1, length elsb], (elsb !! k) == (elsgoal !!k)]
+distance b = length [v | (v,v')<-zip elsb elsgoal, v /= v']
+    --length [k | k<-[0.. (length elsb) -1], (elsb !! k) == (elsgoal !!k)]
     where elsb = A.elems $ boardToGoal b 
           elsgoal = A.elems goalArray
     --where value = sum [ 1 | (b A.! (k1,k2)) == (goalArray A.! (k1,k2)) , 0<k1, k1<2, 0<k2, k2<2]
@@ -199,9 +203,6 @@ sortMovesM listMoves = do
                         result' = orderQueue result0
                     pure result'
                     
-
--- algorithm: at a given state, compute availablemoves with availableM, choose one and update board with movepieceM, check if we are in goal state -> repeat
--- i need heuristic to choose the move: distance to goal state, and i need to store in memory the boards already visited.    
 -- A*? genetic alg
 -- get :: State Board Board
 -- put :: Board -> State Board () 
@@ -235,8 +236,19 @@ depthFirst listExplored k = do
                         Nothing -> put store >> pure Nothing 
                         Just r -> pure $ Just $ (p,m):r
 
-
-
+{-breadthFirst:: [Board] -> [(Piece, Move)] -> Int -> State Board (Maybe [(Piece, Move)])
+breadthFirst  listExplored queue 0 = pureNothing
+breadthFirst listExplored queue k = do 
+                                cur <- get 
+                                goalPred <- isGoalM 
+                                if goalPred 
+                                    then pure $ Just []
+                                else do 
+                                    listMoves0 <- execLocally $ availableM $ MovePieceM queue 
+                                    let listMoves = queue ++ listMoves0 --get availablemoves of all states in queue
+                                        sortedMoves = sortedMoves listMoves -- sort queue
+                                        --result <- --call breadthFirst of every node of depth k (breadthFirst should only explore next depth)
+-}
 
 depthFirst1::  [Board] -> [(Piece, Move)] -> Int -> State Board (Maybe [(Piece,Move)])
 depthFirst1 listExplored queue 0 = pure Nothing
